@@ -1,4 +1,4 @@
 package clazzForTest;
 
-public class CommonClass {
+public class CommonClass implements InterfaceForCommonClass {
 }

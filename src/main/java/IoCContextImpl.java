@@ -8,15 +8,29 @@ public class IoCContextImpl implements IoCContext {
 
     @Override
     public void registerBean(Class<?> beanClazz) {
-        checkForRegister(beanClazz);
+        checkForRegister(new ClassInfo(beanClazz));
+        ClassInfo toBeRegistered = new ClassInfo(beanClazz);
+        beforeRegistered(toBeRegistered);
         clazzInfos.add(new ClassInfo(beanClazz));
     }
+
+    @Override
+    public <T> void registerBean(Class<? super T> resolveClazz, Class<T> beanClazz) {
+        ClassInfo toBeRegistered = new ClassInfo(resolveClazz, beanClazz);
+        checkForRegister(toBeRegistered);
+        beforeRegistered(toBeRegistered);
+        clazzInfos.add(toBeRegistered);
+    }
+
 
     @Override
     public <T> T getBean(Class<T> resolveClazz) throws IllegalAccessException, InstantiationException {
         checkForGet(resolveClazz);
         ClassInfo info = getClazzInfo(resolveClazz).get();
         info.setCalled(true);
+        if (info.hasImplement()) {
+            return (T) info.getImpl().newInstance();
+        }
         return (T) info.getClazz().newInstance();
     }
 
@@ -29,7 +43,16 @@ public class IoCContextImpl implements IoCContext {
         }
     }
 
-    private void checkForRegister(Class<?> beanClazz){
+    private void checkForRegister(ClassInfo classInfo){
+        if (!classInfo.hasImplement()) {
+            checkForImpl(classInfo.getClazz());
+        } else {
+            checkSuper(classInfo.getClazz());
+            checkForImpl(classInfo.getImpl());
+        }
+    }
+
+    private void checkForImpl(Class<?> beanClazz) {
         if (beanClazz == null) {
             throw new IllegalArgumentException("beanClazz is mandatory");
         }
@@ -45,10 +68,21 @@ public class IoCContextImpl implements IoCContext {
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("beanClass full " + beanClazz.getName() + " has no default constructor");
         }
-
     }
 
     private Optional<ClassInfo> getClazzInfo(Class<?> info) {
         return clazzInfos.stream().filter(c -> c.equals(new ClassInfo(info))).findFirst();
+    }
+
+    private void checkSuper(Class<?> clazz) {
+        if (clazz == null) {
+            throw new IllegalArgumentException("beanClazz is mandatory");
+        }
+    }
+
+    private void beforeRegistered(ClassInfo toBeRegistered) {
+        if (clazzInfos.contains(toBeRegistered)) {
+            clazzInfos.remove(toBeRegistered);
+        }
     }
 }

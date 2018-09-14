@@ -40,6 +40,10 @@ public class ClassInfo {
         this.impl = impl;
     }
 
+    public boolean hasImplement() {
+        return impl != null;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
