@@ -1,30 +1,30 @@
 import java.lang.reflect.Modifier;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Optional;
 
 public class IoCContextImpl implements IoCContext {
 
-    private HashSet<Class<?>> clazzInfo = new HashSet<>();
-    private HashMap<Class<?>, Boolean> status = new HashMap<>();
+    private HashSet<ClassInfo> clazzInfos = new HashSet<>();
 
     @Override
     public void registerBean(Class<?> beanClazz) {
         checkForRegister(beanClazz);
-        clazzInfo.add(beanClazz);
+        clazzInfos.add(new ClassInfo(beanClazz));
     }
 
     @Override
     public <T> T getBean(Class<T> resolveClazz) throws IllegalAccessException, InstantiationException {
         checkForGet(resolveClazz);
-        status.put(resolveClazz, true);
-        return (T) getClazzInfo(resolveClazz).newInstance();
+        ClassInfo info = getClazzInfo(resolveClazz).get();
+        info.setCalled(true);
+        return (T) info.getClazz().newInstance();
     }
 
     private <T> void checkForGet(Class<T> resolveClazz) {
         if (resolveClazz == null) {
             throw new IllegalArgumentException();
         }
-        if (!clazzInfo.contains(resolveClazz)) {
+        if (!clazzInfos.contains(new ClassInfo(resolveClazz))) {
             throw new IllegalStateException();
         }
     }
@@ -33,7 +33,7 @@ public class IoCContextImpl implements IoCContext {
         if (beanClazz == null) {
             throw new IllegalArgumentException("beanClazz is mandatory");
         }
-        if (status.get(beanClazz) != null) {
+        if (getClazzInfo(beanClazz).isPresent() && getClazzInfo(beanClazz).get().isCalled()) {
             throw new IllegalStateException();
         }
         if (Modifier.isAbstract(beanClazz.getModifiers())
@@ -48,7 +48,7 @@ public class IoCContextImpl implements IoCContext {
 
     }
 
-    private Class<?> getClazzInfo(Class<?> info) {
-        return clazzInfo.stream().filter(c -> c.equals(info)).findFirst().get();
+    private Optional<ClassInfo> getClazzInfo(Class<?> info) {
+        return clazzInfos.stream().filter(c -> c.equals(new ClassInfo(info))).findFirst();
     }
 }
