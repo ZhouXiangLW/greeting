@@ -1,5 +1,6 @@
 import Annotions.CreatedOnTheFly;
 
+import java.io.Closeable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.*;
@@ -8,6 +9,8 @@ public class IoCContextImpl implements IoCContext {
 
     private HashSet<ClassInfo> clazzInfos = new HashSet<>();
     private HashMap<Field, Class<?>> dependencies = new HashMap<>();
+    private Stack<Object> objects = new Stack<>();
+
 
     @Override
     public void registerBean(Class<?> beanClazz) {
@@ -39,6 +42,7 @@ public class IoCContextImpl implements IoCContext {
         info.setCalled(true);
         Object newInstance = info.hasImplement() ? getNewInstance(info.getImpl()) :
                 getNewInstance(info.getClazz());
+        objects.push(newInstance);
         return (T) newInstance;
     }
 
@@ -122,5 +126,15 @@ public class IoCContextImpl implements IoCContext {
 
     private void beforeRegistered(ClassInfo toBeRegistered) {
         clazzInfos.remove(toBeRegistered);
+    }
+
+    @Override
+    public void close() {
+        while (!objects.empty()) {
+            try {
+                Closeable closeable = (Closeable) objects.pop();
+                closeable.close();
+            } catch (Exception ignored) {}
+        }
     }
 }

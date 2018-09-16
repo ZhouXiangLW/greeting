@@ -66,4 +66,11 @@ class IoCContextImplTestForQuestion4 {
         assertTrue(context.getBean(ClassWithDependency.class).isInjected());
 
     }
+
+    @Test
+    void should_inject_an_interface() throws InstantiationException, IllegalAccessException {
+        context.registerBean(InterfaceForCommonClass.class, CommonClass.class);
+        context.registerBean(DependencyInterface.class);
+        assertTrue(context.getBean(DependencyInterface.class).isInjected());
+    }
 }
