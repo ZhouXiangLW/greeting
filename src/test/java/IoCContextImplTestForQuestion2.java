@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class IoCContextImplTest {
+public class IoCContextImplTestForQuestion2 {
 
     private IoCContext context;
 

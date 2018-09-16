@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class IoCContextImplTest3 {
+public class IoCContextImplTestForQuestion3 {
     private IoCContext context;
 
     @BeforeEach
