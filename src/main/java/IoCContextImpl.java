@@ -2,13 +2,12 @@ import Annotions.CreatedOnTheFly;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
-import java.util.Optional;
+import java.util.*;
 
 public class IoCContextImpl implements IoCContext {
 
     private HashSet<ClassInfo> clazzInfos = new HashSet<>();
-    private HashSet<Class<?>> dependencys = new HashSet<>();
+    private HashMap<Field, Class<?>> dependencies = new HashMap<>();
 
     @Override
     public void registerBean(Class<?> beanClazz) {
@@ -30,11 +29,11 @@ public class IoCContextImpl implements IoCContext {
     @Override
     public <T> T getBean(Class<T> resolveClazz) throws IllegalAccessException, InstantiationException {
         T result = doGetBean(resolveClazz);
-        dependencys.clear();
+        dependencies.clear();
         return result;
     }
 
-    public <T> T doGetBean(Class<T> resolveClazz) throws InstantiationException, IllegalAccessException {
+    private <T> T doGetBean(Class<T> resolveClazz) throws InstantiationException, IllegalAccessException {
         checkForGet(resolveClazz);
         ClassInfo info = getClazzInfo(resolveClazz).orElseThrow(IllegalArgumentException::new);
         info.setCalled(true);
@@ -45,20 +44,34 @@ public class IoCContextImpl implements IoCContext {
 
     private Object getNewInstance(Class<?> clazz) throws IllegalAccessException, InstantiationException {
         Object instance = clazz.newInstance();
-        Field[] fields = clazz.getDeclaredFields();
+        Field[] fields = getAllFields(clazz);
         for (Field field : fields) {
             if (field.isAnnotationPresent(CreatedOnTheFly.class)) {
-                Class<?> c = field.getType();
-                if (dependencys.contains(c)) {
-                    dependencys.clear();
+                if (field.getDeclaringClass().equals(dependencies.get(field))) {
+                    dependencies.clear();
                     throw new IllegalStateException();
                 }
-                dependencys.add(c);
+                dependencies.put(field, field.getDeclaringClass());
                 field.setAccessible(true);
-                field.set(instance, doGetBean(c));
+                field.set(instance, doGetBean(field.getType()));
             }
         }
         return instance;
+    }
+
+    private Field[] getAllFields(Class<?> clazz) {
+        List<Field> fields = new ArrayList<>();
+        Stack<Class<?>> superClasses = new Stack<>();
+        superClasses.push(clazz);
+        while (clazz.getSuperclass() != null) {
+            superClasses.push(clazz.getSuperclass());
+            clazz = clazz.getSuperclass();
+        }
+        while (!superClasses.empty()) {
+            Class<?> current = superClasses.pop();
+            fields.addAll(Arrays.asList(current.getDeclaredFields()));
+        }
+        return fields.toArray(new Field[0]);
     }
 
     private <T> void checkForGet(Class<T> resolveClazz) {
@@ -70,7 +83,7 @@ public class IoCContextImpl implements IoCContext {
         }
     }
 
-    private void checkForRegister(ClassInfo classInfo){
+    private void checkForRegister(ClassInfo classInfo) {
         if (!classInfo.hasImplement()) {
             checkForImpl(classInfo.getClazz());
         } else {
@@ -87,7 +100,7 @@ public class IoCContextImpl implements IoCContext {
             throw new IllegalStateException();
         }
         if (Modifier.isAbstract(beanClazz.getModifiers())
-                || Modifier.isInterface(beanClazz.getModifiers()) ) {
+                || Modifier.isInterface(beanClazz.getModifiers())) {
             throw new IllegalArgumentException(beanClazz.getName() + " is abstract");
         }
         try {

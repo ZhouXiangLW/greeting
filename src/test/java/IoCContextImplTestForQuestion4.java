@@ -46,6 +46,13 @@ class IoCContextImplTestForQuestion4 {
     }
 
     @Test
+    void should_inject_multiply_dependencies() throws InstantiationException, IllegalAccessException {
+        context.registerBean(BaseDependency.class);
+        context.registerBean(ClassWithTwoDependencies.class);
+        assertTrue(context.getBean(ClassWithTwoDependencies.class).isInjected());
+    }
+
+    @Test
     void should_not_influence_on_other_beans() throws InstantiationException, IllegalAccessException {
         context.registerBean(LoopDependencyB.class);
         context.registerBean(LoopDependencyA.class);
