@@ -10,12 +10,13 @@ public class IoCContextImpl implements IoCContext {
     private HashSet<ClassInfo> clazzInfos = new HashSet<>();
     private HashMap<Field, Class<?>> dependencies = new HashMap<>();
     private Stack<Object> objects = new Stack<>();
+    private boolean isClose = false;
 
 
     @Override
     public void registerBean(Class<?> beanClazz) {
-        checkForRegister(new ClassInfo(beanClazz));
         ClassInfo toBeRegistered = new ClassInfo(beanClazz);
+        checkForRegister(toBeRegistered);
         beforeRegistered(toBeRegistered);
         clazzInfos.add(new ClassInfo(beanClazz));
     }
@@ -79,6 +80,9 @@ public class IoCContextImpl implements IoCContext {
     }
 
     private <T> void checkForGet(Class<T> resolveClazz) {
+        if (isClose) {
+            throw new IllegalStateException("IoC context has been closed");
+        }
         if (resolveClazz == null) {
             throw new IllegalArgumentException();
         }
@@ -88,6 +92,9 @@ public class IoCContextImpl implements IoCContext {
     }
 
     private void checkForRegister(ClassInfo classInfo) {
+        if (isClose) {
+            throw new IllegalStateException("IoC context has been closed");
+        }
         if (!classInfo.hasImplement()) {
             checkForImpl(classInfo.getClazz());
         } else {
@@ -100,6 +107,7 @@ public class IoCContextImpl implements IoCContext {
         if (beanClazz == null) {
             throw new IllegalArgumentException("beanClazz is mandatory");
         }
+
         if (getClazzInfo(beanClazz).isPresent() && getClazzInfo(beanClazz).get().isCalled()) {
             throw new IllegalStateException();
         }
@@ -129,12 +137,20 @@ public class IoCContextImpl implements IoCContext {
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
+        Exception exception = null;
         while (!objects.empty()) {
             try {
                 Closeable closeable = (Closeable) objects.pop();
                 closeable.close();
-            } catch (Exception ignored) {}
+            } catch (ClassCastException ignored) {
+            } catch (Exception e) {
+                exception = exception == null ? e : exception;
+            }
+        }
+        isClose = true;
+        if (exception != null) {
+            throw exception;
         }
     }
 }

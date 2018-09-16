@@ -46,8 +46,11 @@ public class ClassInfo {
 
     @Override
     public boolean equals(Object o) {
+        if (o == null) {
+            return false;
+        }
         if (this == o) return true;
-        if (!(o instanceof ClassInfo)) return false;
+        if (o.getClass() != this.getClass()) return false;
         ClassInfo info = (ClassInfo) o;
         return Objects.equals(clazz, info.clazz);
     }

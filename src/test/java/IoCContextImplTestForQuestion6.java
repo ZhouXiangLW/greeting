@@ -2,6 +2,9 @@ import clazzForTest.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IoCContextImplTestForQuestion6 {
@@ -37,8 +40,18 @@ class IoCContextImplTestForQuestion6 {
         context.registerBean(ThrowWhenClose.class);
         CloseableObject closeableObject = context.getBean(CloseableObject.class);
         ThrowWhenClose throwWhenClose = context.getBean(ThrowWhenClose.class);
-        context.close();
+        assertThrows(IOException.class, () -> context.close());
         assertTrue(closeableObject.isClose() && throwWhenClose.isClose());
+    }
+
+    @Test
+    void should_throw_first_exception_when_closeable_object_throws() throws Exception {
+        context.registerBean(ThrowWhenClose.class);
+        context.registerBean(CloseableObject.class);
+        context.getBean(CloseableObject.class);
+        context.getBean(ThrowWhenClose.class);
+        assertThrows(IOException.class,
+                () -> context.close());
     }
 
     @Test
@@ -58,5 +71,23 @@ class IoCContextImplTestForQuestion6 {
         context.close();
         assertTrue(closeableObject1.isClose() && closeableObject2.isClose());
         assertTrue(closeableObject2.getCloseTime().before(closeableObject1.getCloseTime()));
+    }
+
+    @Test
+    void should_throw_when_get_bean_given_context_is_closed() throws Exception {
+        context.registerBean(CommonClass.class);
+        context.close();
+        assertThrows(IllegalStateException.class,
+                () -> context.getBean(CommonClass.class),
+                "IoC context has been closed");
+    }
+
+    @Test
+    void should_throw_when_register_given_context_is_closed() throws Exception {
+        context.registerBean(CloseableObject.class);
+        context.close();
+        assertThrows(IllegalStateException.class,
+                () -> context.getBean(CommonClass.class),
+                "IoC context has been closed");
     }
 }
