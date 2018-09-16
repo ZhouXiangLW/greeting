@@ -1,3 +1,6 @@
+import Annotions.CreatedOnTheFly;
+
+import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.Optional;
@@ -5,6 +8,7 @@ import java.util.Optional;
 public class IoCContextImpl implements IoCContext {
 
     private HashSet<ClassInfo> clazzInfos = new HashSet<>();
+    private HashSet<Class<?>> dependencys = new HashSet<>();
 
     @Override
     public void registerBean(Class<?> beanClazz) {
@@ -25,13 +29,36 @@ public class IoCContextImpl implements IoCContext {
 
     @Override
     public <T> T getBean(Class<T> resolveClazz) throws IllegalAccessException, InstantiationException {
+        T result = doGetBean(resolveClazz);
+        dependencys.clear();
+        return result;
+    }
+
+    public <T> T doGetBean(Class<T> resolveClazz) throws InstantiationException, IllegalAccessException {
         checkForGet(resolveClazz);
-        ClassInfo info = getClazzInfo(resolveClazz).get();
+        ClassInfo info = getClazzInfo(resolveClazz).orElseThrow(IllegalArgumentException::new);
         info.setCalled(true);
-        if (info.hasImplement()) {
-            return (T) info.getImpl().newInstance();
+        Object newInstance = info.hasImplement() ? getNewInstance(info.getImpl()) :
+                getNewInstance(info.getClazz());
+        return (T) newInstance;
+    }
+
+    private Object getNewInstance(Class<?> clazz) throws IllegalAccessException, InstantiationException {
+        Object instance = clazz.newInstance();
+        Field[] fields = clazz.getDeclaredFields();
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(CreatedOnTheFly.class)) {
+                Class<?> c = field.getType();
+                if (dependencys.contains(c)) {
+                    dependencys.clear();
+                    throw new IllegalStateException();
+                }
+                dependencys.add(c);
+                field.setAccessible(true);
+                field.set(instance, doGetBean(c));
+            }
         }
-        return (T) info.getClazz().newInstance();
+        return instance;
     }
 
     private <T> void checkForGet(Class<T> resolveClazz) {
@@ -81,8 +108,6 @@ public class IoCContextImpl implements IoCContext {
     }
 
     private void beforeRegistered(ClassInfo toBeRegistered) {
-        if (clazzInfos.contains(toBeRegistered)) {
-            clazzInfos.remove(toBeRegistered);
-        }
+        clazzInfos.remove(toBeRegistered);
     }
 }
